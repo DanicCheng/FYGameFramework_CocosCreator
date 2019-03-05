@@ -116,11 +116,59 @@ export default class FYUtility {
     }
 
     /**
+     * 是否绘制调试标记
+     * @param enabled 开关
+     */
+    static enableDebugDrawFlags(enabled: boolean) {
+        if (enabled) {
+            let Bits = cc.PhysicsManager.DrawBits;
+            cc.director.getPhysicsManager().debugDrawFlags = Bits.e_aabbBit |
+                Bits.e_pairBit |
+                Bits.e_centerOfMassBit |
+                Bits.e_jointBit |
+                Bits.e_shapeBit;
+        } else {
+            cc.director.getPhysicsManager().debugDrawFlags = 0;
+        }
+    }
+
+    /**
+     * 检测哪些碰撞体在给定射线的路径上，射线检测将忽略包含起始点的碰撞体。
+     * @param p1 射线起始点
+     * @param p2 射线终点
+     * @param type 射线类型
+     */
+    static rayCast(p1: cc.Vec2, p2: cc.Vec2, type: cc.RayCastType): [cc.PhysicsRayCastResult] {
+        return cc.director.getPhysicsManager().rayCast(p1, p2, type);
+    }
+
+    /**
+     * 检测哪些碰撞体在给定射线的路径上，射线检测将忽略包含起始点的碰撞体。
+     * @param p1 射线起始点
+     * @param length 射线长度
+     * @param angle 射线弧度 0 代表 X轴正方向 逆时针旋转
+     * @param type 射线类型
+     */
+    static rayCastEx(p1: cc.Vec2, length: number, angle: number, type: cc.RayCastType): [cc.PhysicsRayCastResult] {
+        let pEnd = new cc.Vec2(p1.x + length * Math.cos(angle), p1.y + length * Math.sin(angle));
+        // console.log("rayCastEx ---> p1 = " + p1, ", pEnd = " + pEnd);
+        return FYUtility.rayCast(p1, pEnd, type);
+    }
+
+    /**
      * 是否启用碰撞系统
      * @param enabled 开关
      */
     static enableCollisionSystem(enabled: boolean) {
         cc.director.getCollisionManager().enabled = enabled;
+    }
+
+    /**
+     * 是否绘制碰撞组件的包围盒
+     * @param enabled 开关
+     */
+    static enabledDrawBoundingBox(enabled: boolean) {
+        cc.director.getCollisionManager().enabledDrawBoundingBox = enabled;
     }
 
     /**
@@ -176,13 +224,26 @@ export default class FYUtility {
         return count;
     }
 
+    static formatMoney(_money) {
+        _money = Number(_money);
+        let integer = parseInt(_money);
+        let flt = (_money * 100 - integer * 100) / 100;
+        let fltln = 2;
+        var fltint = (flt.toString()).substring(2, (fltln + 2));
+        if (flt == 0) {
+            fltint = "00";
+        }
+        let result = `${integer}.${FYUtility.PadZero(fltint)}`;
+        return result;
+    }
+
     static formatTime(_seconds) {
         _seconds = parseInt(_seconds);
         let hours, mins, seconds;
         let result = '';
-        seconds = _seconds % 60;
-        mins = _seconds % 3600 / 60;
-        hours = _seconds / 3600;
+        seconds = Math.floor(_seconds % 60);
+        mins = Math.floor(_seconds % 3600 / 60);
+        hours = Math.floor(_seconds / 3600);
 
         if (hours)
             result = `${FYUtility.PadZero(hours)}:${FYUtility.PadZero(mins)}:${FYUtility.PadZero(seconds)}`
@@ -198,9 +259,9 @@ export default class FYUtility {
         let hours, mins, seconds, mSeconds;
         let result = '';
         mSeconds = Math.floor((_mSeconds - Math.floor(_mSeconds / 1000) * 1000) / 10);
-        seconds = mSeconds / 1000 % 60;
-        mins = _mSeconds / 1000 % 3600 / 60
-        hours = _mSeconds / 1000 / 3600;
+        seconds = Math.floor(mSeconds / 1000 % 60);
+        mins = Math.floor(_mSeconds / 1000 % 3600 / 60);
+        hours = Math.floor(_mSeconds / 1000 / 3600);
 
         result = `${FYUtility.PadZero(seconds)}:${FYUtility.PadZero(mSeconds)}`
         //console.log(result)  
@@ -254,11 +315,13 @@ export default class FYUtility {
                         callback(responseJson);
                     } else {
                         console.log("返回数据不存在")
-                        callback(false);
+                        // callback(false);
+                        FYUtility.httpGet(url, reqData, callback);
                     }
                 } else {
                     console.log("请求失败")
-                    callback(false);
+                    // callback(false);
+                    FYUtility.httpGet(url, reqData, callback);
                 }
             }
         };
@@ -299,7 +362,7 @@ export default class FYUtility {
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(param);//reqData为字符串形式： "key=value"
     }
-	
+
 	/**
      * 加载远程图片
      * @param url 远程图片地址
@@ -312,4 +375,56 @@ export default class FYUtility {
             sprite.spriteFrame = spriteFrame;
         });
     }
+
+    /**
+     * 计算两个向量的距离
+     * @param vec1 向量1
+     * @param vec2 向量2
+     */
+    static calcVecDistance(vec1: cc.Vec2, vec2: cc.Vec2) {
+        return Math.sqrt(Math.pow(vec1.x - vec2.x, 2) + Math.pow(vec1.y - vec2.y, 2));
+    }
+
+    /**
+     * 计算线速度
+     * @param velocityValue 速度值
+     * @param angleRadian 弧度
+     */
+    static calcLinearVelocity(velocityValue, angleRadian) {
+        return new cc.Vec2(velocityValue * Math.cos(angleRadian), velocityValue * Math.sin(angleRadian));
+    }
+
+    /**
+     * 计算向量角度 相对于X正方向
+     * @param vec 向量
+     */
+    static calcVecAngleRadian(vec: cc.Vec2) {
+        let angle = 0;
+        if (!vec.equals(cc.Vec2.ZERO)) {
+            angle = cc.Vec2.RIGHT.signAngle(vec);
+        }
+        return angle;
+    }
+
+    /**
+     * 字符串格式化
+     * @param src 源字符串
+     * @param args 格式化 使用{0} {1} 代表各个参数
+     */
+    static stringFormat(src, ...args) {
+        let result = src;
+        if (args.length < 1) {
+            return result;
+        }
+
+        for (let key in args) {
+            let value = args[key];
+            if (undefined != value) {
+                result = result.replace("{" + key + "}", value);
+            }
+        }
+        return result;
+    }
+
 }
+
